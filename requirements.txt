@@ -1,5 +1,6 @@
-matplotlib
 streamlit
-scikit-learn
+yfinance
+ta
 pandas
-openpyxl
+matplotlib
+plotly
