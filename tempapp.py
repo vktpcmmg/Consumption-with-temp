@@ -13,7 +13,7 @@ st.title("Electricity Consumption Predictor with Weather AI")
 @st.cache_data
 def load_data():
     df_cons = pd.read_csv("consumptionai.csv")
-    df_weather = pd.read_csv("weatherdata.csv")
+    df_weather = pd.read_csv("weather.csv")
     
     df_cons.columns = df_cons.columns.str.strip()
     df_weather.columns = df_weather.columns.str.strip()
