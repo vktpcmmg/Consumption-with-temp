@@ -1,0 +1,73 @@
+Zone,Month,Avg_Temp_C,Avg_Humidity
+City South,May,30.48,73.23
+City South,Jun,28.48,82.53
+City South,Jul,26.96,87.81
+City South,Aug,27,85.94
+City South,Sep,26.53,86.57
+City South,Oct,27.39,84.68
+City South,Nov,27.74,55.8
+City South,Dec,25.87,59.13
+City South,Jan,25.86,54.71
+City South,Feb,27.59,42.43
+City South,Mar,29.12,51.03
+City South,Apr,29.59,69.57
+Urban,May,30.56,73.13
+Urban,Jun,28.48,82.73
+Urban,Jul,26.85,88.45
+Urban,Aug,26.95,86.06
+Urban,Sep,26.45,86.77
+Urban,Oct,27.35,84.39
+Urban,Nov,27.62,54.4
+Urban,Dec,25.75,59.16
+Urban,Jan,25.69,55.23
+Urban,Feb,27.57,42.75
+Urban,Mar,29.17,50.45
+Urban,Apr,29.79,68.3
+West Suburb,May,30.43,74
+West Suburb,Jun,28.42,83.33
+West Suburb,Jul,26.81,88.9
+West Suburb,Aug,26.9,86.52
+West Suburb,Sep,26.41,87.17
+West Suburb,Oct,27.32,84.87
+West Suburb,Nov,27.34,56.1
+West Suburb,Dec,25.38,61.39
+West Suburb,Jan,25.35,57.42
+West Suburb,Feb,27.22,44.5
+West Suburb,Mar,28.86,52.23
+West Suburb,Apr,29.64,69.13
+East Suburb,May,31.18,69.65
+East Suburb,Jun,28.32,83.33
+East Suburb,Jul,26.57,89.32
+East Suburb,Aug,26.76,86.65
+East Suburb,Sep,26.23,87.8
+East Suburb,Oct,27.25,84.29
+East Suburb,Nov,27.63,52.93
+East Suburb,Dec,26.05,58.39
+East Suburb,Jan,26.11,53.9
+East Suburb,Feb,28.24,39.86
+East Suburb,Mar,29.97,45.52
+East Suburb,Apr,30.39,64.93
+North Suburb,May,30.84,72.26
+North Suburb,Jun,28.35,84.17
+North Suburb,Jul,26.55,90.74
+North Suburb,Aug,26.72,88.03
+North Suburb,Sep,26.27,88.37
+North Suburb,Oct,27.44,83.58
+North Suburb,Nov,27.08,54.23
+North Suburb,Dec,25.18,60.84
+North Suburb,Jan,25.59,54.52
+North Suburb,Feb,27.66,41.07
+North Suburb,Mar,29.35,47.45
+North Suburb,Apr,29.76,67.67
+Metro,May,30.44,73.1
+Metro,Jun,28.34,82.73
+Metro,Jul,26.71,88.45
+Metro,Aug,26.82,86.03
+Metro,Sep,26.32,86.77
+Metro,Oct,27.23,84.39
+Metro,Nov,27.5,54.3
+Metro,Dec,25.61,59.1
+Metro,Jan,25.58,55.19
+Metro,Feb,27.44,42.68
+Metro,Mar,29.05,50.45
+Metro,Apr,29.66,68.27
