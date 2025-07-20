@@ -1,94 +1,72 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
 
-st.set_page_config(page_title="Tata Power AI Model", layout="centered")
+st.set_page_config(layout="centered")
+st.image("824cb023-3bea-45a2-a136-18f7b2927d48.png", width=350)
+st.title("Electricity Consumption Predictor with Weather AI")
 
-st.image("https://upload.wikimedia.org/wikipedia/en/thumb/6/64/Tata_Power_Logo.svg/2560px-Tata_Power_Logo.svg.png", width=200)
-
-st.title("Electricity Consumption Prediction")
-st.markdown("Upload includes: `consumptionai.csv` (Sheet1) & `weather.csv` (Sheet2). Prediction uses weather + load + location.")
-
+# Load consumption and weather data from local files
 @st.cache_data
 def load_data():
     df_cons = pd.read_csv("consumptionai.csv")
-    df_weather = pd.read_csv("weather.csv")
+    df_weather = pd.read_csv("weatherdata.csv")
     
-    # Clean columns
     df_cons.columns = df_cons.columns.str.strip()
-    df_cons.rename(columns={"Connected Load": "Connected Load"}, inplace=True)
     df_weather.columns = df_weather.columns.str.strip()
 
-    # Strip text
-    df_cons['Zone'] = df_cons['Zone'].astype(str).str.strip()
-    df_weather['Zone'] = df_weather['Zone'].astype(str).str.strip()
-    df_weather['Month'] = df_weather['Month'].astype(str).str.strip()
+    df_cons.rename(columns={'Connected  Load': 'Connected Load'}, inplace=True)
+    df_weather.rename(columns={"Avg_Temp_C": "Temp", "Avg_Humidity": "Humidity"}, inplace=True)
 
     return df_cons, df_weather
 
 df_cons, df_weather = load_data()
 
-# --- Sidebar Inputs ---
-st.sidebar.header("Input Parameters")
+# User inputs
+st.sidebar.header("Enter Details")
+category = st.sidebar.selectbox("Category", sorted(df_cons['Category'].unique()))
+zone = st.sidebar.selectbox("Zone", sorted(df_cons['Zone'].unique()))
+connected_load = st.sidebar.number_input("Connected Load (kW)", min_value=1.0, step=0.5)
+month = st.sidebar.selectbox("Month", ["May", "Jun", "Jul", "August", "Sept", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"])
 
-zone = st.sidebar.selectbox("Select Zone", sorted(df_cons["Zone"].dropna().unique()))
-district = st.sidebar.selectbox("Select District", sorted(df_cons[df_cons["Zone"] == zone]["District"].dropna().unique()))
-category = st.sidebar.selectbox("Select Category", sorted(df_cons["Category"].dropna().unique()))
-month = st.sidebar.selectbox("Select Month", ['May','Jun','Jul','August','Sept','Oct','Nov','Dec','Jan','Feb','Mar','Apr'])
-connected_load = st.sidebar.number_input("Connected Load (kW)", min_value=1.0, max_value=1000.0, value=10.0)
+# Filter for training based on similar weather history
+def get_similar_weather_data(df_weather, target_zone, target_month):
+    target_weather = df_weather[(df_weather['Zone'] == target_zone) & (df_weather['Month'] == month)]
+    if target_weather.empty:
+        return df_weather  # fallback
 
-# --- Weather for selected zone+month ---
-weather_row = df_weather[(df_weather["Zone"] == zone) & (df_weather["Month"] == month)]
-if not weather_row.empty:
-    temperature = weather_row.iloc[0]["Temperature"]
-    humidity = weather_row.iloc[0]["Humidity"]
-else:
-    temperature = 30  # default fallback
-    humidity = 50
+    temp, humid = target_weather.iloc[0]["Temp"], target_weather.iloc[0]["Humidity"]
+    
+    # Compute similarity (euclidean distance)
+    df_weather["similarity"] = ((df_weather["Temp"] - temp) ** 2 + (df_weather["Humidity"] - humid) ** 2) ** 0.5
+    similar_zones = df_weather.sort_values("similarity").head(6)["Zone"].unique()
+    return similar_zones
 
-# --- Prepare Data for Model ---
+# Training
 def train_model(month):
-    df_train = df_cons[["Category", "Connected Load", "Zone", "District", month]].copy()
-    df_train = df_train.dropna()
+    df_filtered = df_cons[df_cons['Category'] == category]
+    df_filtered = df_filtered[df_filtered['Zone'].isin(get_similar_weather_data(df_weather, zone, month))]
 
-    df_train["Temperature"] = df_train["Zone"].map(
-        lambda z: df_weather[(df_weather["Zone"] == z) & (df_weather["Month"] == month)]["Temperature"].values[0]
-        if not df_weather[(df_weather["Zone"] == z) & (df_weather["Month"] == month)].empty else 30
-    )
-
-    df_train["Humidity"] = df_train["Zone"].map(
-        lambda z: df_weather[(df_weather["Zone"] == z) & (df_weather["Month"] == month)]["Humidity"].values[0]
-        if not df_weather[(df_weather["Zone"] == z) & (df_weather["Month"] == month)].empty else 50
-    )
-
-    X = df_train[["Connected Load", "Temperature", "Humidity"]]
-    y = df_train[month]
+    X = df_filtered[["Connected Load"]]
+    y = df_filtered[month]
 
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
     return model
 
-model = train_model(month)
+if st.sidebar.button("Predict Consumption"):
+    model = train_model(month)
+    prediction = model.predict(np.array([[connected_load]]))[0]
+    st.success(f"Predicted Consumption for {month} FY24-25: **{prediction:.2f} kWh**")
 
-# --- Prediction ---
-input_data = pd.DataFrame({
-    "Connected Load": [connected_load],
-    "Temperature": [temperature],
-    "Humidity": [humidity]
-})
+    # Plot
+    fig, ax = plt.subplots()
+    ax.bar([month], [prediction], color='skyblue')
+    ax.set_ylabel("Consumption (kWh)")
+    ax.set_title("Predicted Monthly Consumption")
+    st.pyplot(fig)
 
-predicted_consumption = model.predict(input_data)[0]
-
-# --- Display ---
-st.subheader("Prediction Result")
-st.markdown(f"""
-**Zone**: {zone}  
-**District**: {district}  
-**Category**: {category}  
-**Month**: {month}  
-**Connected Load**: {connected_load} kW  
-**Temperature**: {temperature} °C  
-**Humidity**: {humidity} %
-
-### 🔮 Predicted Consumption: `{predicted_consumption:.2f}` units
-""")
+    st.caption("Model trained using similar weather patterns across zones.")
