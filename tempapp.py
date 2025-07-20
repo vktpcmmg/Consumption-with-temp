@@ -1,72 +1,89 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import LabelEncoder
 
-st.set_page_config(layout="centered")
+# App title and logo
+st.set_page_config(page_title="Weather-Aware Consumption AI", layout="centered")
 st.image("tata_logo.png", width=350)
-st.title("Electricity Consumption Predictor with Weather AI")
+st.markdown("<h3 style='text-align: center;'>Electricity Consumption Prediction with Weather Intelligence</h3>", unsafe_allow_html=True)
 
-# Load consumption and weather data from local files
+# Load data
 @st.cache_data
 def load_data():
-    df_cons = pd.read_csv("consumptionai.csv")
-    df_weather = pd.read_csv("weather.csv")
+    df = pd.read_csv("consumptionai.csv")
+    df.columns = df.columns.str.strip()
+    df.rename(columns={'Connected  Load': 'Connected Load'}, inplace=True)
     
-    df_cons.columns = df_cons.columns.str.strip()
-    df_weather.columns = df_weather.columns.str.strip()
-
-    df_cons.rename(columns={'Connected  Load': 'Connected Load'}, inplace=True)
-    df_weather.rename(columns={"Avg_Temp_C": "Temp", "Avg_Humidity": "Humidity"}, inplace=True)
-
-    return df_cons, df_weather
+    weather_df = pd.read_csv("weather.csv")
+    weather_df.columns = weather_df.columns.str.strip()
+    return df, weather_df
 
 df_cons, df_weather = load_data()
 
-# User inputs
-st.sidebar.header("Enter Details")
-category = st.sidebar.selectbox("Category", sorted(df_cons['Category'].unique()))
-zone = st.sidebar.selectbox("Zone", sorted(df_cons['Zone'].unique()))
-connected_load = st.sidebar.number_input("Connected Load (kW)", min_value=1.0, step=0.5)
-month = st.sidebar.selectbox("Month", ["May", "Jun", "Jul", "August", "Sept", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"])
+# Melt consumption data to long format
+df_long = df_cons.melt(
+    id_vars=["meter_number", "Category", "Connected Load", "Zone", "District"],
+    var_name="Month",
+    value_name="Consumption"
+)
 
-# Filter for training based on similar weather history
-def get_similar_weather_data(df_weather, target_zone, target_month):
-    target_weather = df_weather[(df_weather['Zone'] == target_zone) & (df_weather['Month'] == month)]
-    if target_weather.empty:
-        return df_weather  # fallback
+# Merge with weather data
+df_merged = pd.merge(
+    df_long,
+    df_weather,
+    on=["Zone", "Month"],
+    how="left"
+)
 
-    temp, humid = target_weather.iloc[0]["Temp"], target_weather.iloc[0]["Humidity"]
-    
-    # Compute similarity (euclidean distance)
-    df_weather["similarity"] = ((df_weather["Temp"] - temp) ** 2 + (df_weather["Humidity"] - humid) ** 2) ** 0.5
-    similar_zones = df_weather.sort_values("similarity").head(6)["Zone"].unique()
-    return similar_zones
+# Encode Category
+df_merged['Category'] = df_merged['Category'].astype('category')
+df_merged['Cat_Code'] = df_merged['Category'].cat.codes
 
-# Training
-def train_model(month):
-    df_filtered = df_cons[df_cons['Category'] == category]
-    df_filtered = df_filtered[df_filtered['Zone'].isin(get_similar_weather_data(df_weather, zone, month))]
+# Train model
+features = df_merged[["Connected Load", "Zone", "Month", "Cat_Code", "Avg_Temp_C", "Avg_Humidity"]]
+features = pd.get_dummies(features, columns=["Zone", "Month"], drop_first=True)
+target = df_merged["Consumption"]
 
-    X = df_filtered[["Connected Load"]]
-    y = df_filtered[month]
+model = RandomForestRegressor(random_state=42)
+model.fit(features, target)
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X, y)
-    return model
+# Sidebar input block centered using columns
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.subheader("Enter Details to Predict Consumption")
+    load = st.number_input("Connected Load (kW)", min_value=1.0, step=0.5)
+    category = st.selectbox("Category", df_merged['Category'].unique())
+    zone = st.selectbox("Zone", sorted(df_merged['Zone'].unique()))
+    month = st.selectbox("Month", sorted(df_merged['Month'].unique()))
 
-if st.sidebar.button("Predict Consumption"):
-    model = train_model(month)
-    prediction = model.predict(np.array([[connected_load]]))[0]
-    st.success(f"Predicted Consumption for {month} FY24-25: **{prediction:.2f} kWh**")
+# Get weather values for selected Zone & Month
+weather_row = df_weather[(df_weather["Zone"] == zone) & (df_weather["Month"] == month)]
+if not weather_row.empty:
+    avg_temp = weather_row["Avg_Temp_C"].values[0]
+    avg_humidity = weather_row["Avg_Humidity"].values[0]
+else:
+    avg_temp = avg_humidity = 0  # fallback
 
-    # Plot
-    fig, ax = plt.subplots()
-    ax.bar([month], [prediction], color='skyblue')
-    ax.set_ylabel("Consumption (kWh)")
-    ax.set_title("Predicted Monthly Consumption")
-    st.pyplot(fig)
+# Prepare input for prediction
+input_dict = {
+    "Connected Load": load,
+    "Cat_Code": df_merged[df_merged['Category'] == category]["Cat_Code"].iloc[0],
+    "Avg_Temp_C": avg_temp,
+    "Avg_Humidity": avg_humidity,
+}
+# Add dummy variables
+for z in sorted(df_merged['Zone'].unique()):
+    input_dict[f"Zone_{z}"] = 1 if z == zone else 0
+for m in sorted(df_merged['Month'].unique())[1:]:  # drop_first=True
+    input_dict[f"Month_{m}"] = 1 if m == month else 0
 
-    st.caption("Model trained using similar weather patterns across zones.")
+input_df = pd.DataFrame([input_dict])
+
+# Predict
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("Predict Consumption (kWh)"):
+        prediction = model.predict(input_df)[0]
+        st.success(f"Predicted Consumption: **{prediction:.2f} kWh**")
+
