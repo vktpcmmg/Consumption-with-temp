@@ -1,89 +1,48 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import joblib
 
-# App title and logo
-st.set_page_config(page_title="Weather-Aware Consumption AI", layout="centered")
-st.image("tata_logo.png", width=350)
-st.markdown("<h3 style='text-align: center;'>Electricity Consumption Prediction with Weather Intelligence</h3>", unsafe_allow_html=True)
+st.set_page_config(page_title="Electricity Consumption Predictor", page_icon="🔌", layout="centered")
+
+# Load model
+model = joblib.load("consumption_model.pkl")  # replace with your actual model path if different
 
 # Load data
-@st.cache_data
-def load_data():
-    df = pd.read_csv("consumptionai.csv")
-    df.columns = df.columns.str.strip()
-    df.rename(columns={'Connected  Load': 'Connected Load'}, inplace=True)
-    
-    weather_df = pd.read_csv("weather.csv")
-    weather_df.columns = weather_df.columns.str.strip()
-    return df, weather_df
+df = pd.read_csv("consumptionai.csv")
+weather_df = pd.read_csv("weather.csv")
 
-df_cons, df_weather = load_data()
-
-# Melt consumption data to long format
-df_long = df_cons.melt(
-    id_vars=["meter_number", "Category", "Connected Load", "Zone", "District"],
-    var_name="Month",
-    value_name="Consumption"
-)
-
-# Merge with weather data
-df_merged = pd.merge(
-    df_long,
-    df_weather,
-    on=["Zone", "Month"],
-    how="left"
-)
-
-# Encode Category
-df_merged['Category'] = df_merged['Category'].astype('category')
-df_merged['Cat_Code'] = df_merged['Category'].cat.codes
-
-# Train model
-features = df_merged[["Connected Load", "Zone", "Month", "Cat_Code", "Avg_Temp_C", "Avg_Humidity"]]
-features = pd.get_dummies(features, columns=["Zone", "Month"], drop_first=True)
-target = df_merged["Consumption"]
-
-model = RandomForestRegressor(random_state=42)
-model.fit(features, target)
-
-# Sidebar input block centered using columns
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.subheader("Enter Details to Predict Consumption")
-    load = st.number_input("Connected Load (kW)", min_value=1.0, step=0.5)
-    category = st.selectbox("Category", df_merged['Category'].unique())
-    zone = st.selectbox("Zone", sorted(df_merged['Zone'].unique()))
-    month = st.selectbox("Month", sorted(df_merged['Month'].unique()))
-
-# Get weather values for selected Zone & Month
-weather_row = df_weather[(df_weather["Zone"] == zone) & (df_weather["Month"] == month)]
-if not weather_row.empty:
-    avg_temp = weather_row["Avg_Temp_C"].values[0]
-    avg_humidity = weather_row["Avg_Humidity"].values[0]
-else:
-    avg_temp = avg_humidity = 0  # fallback
-
-# Prepare input for prediction
-input_dict = {
-    "Connected Load": load,
-    "Cat_Code": df_merged[df_merged['Category'] == category]["Cat_Code"].iloc[0],
-    "Avg_Temp_C": avg_temp,
-    "Avg_Humidity": avg_humidity,
+# Mapping of month names
+month_mapping = {
+    'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8,
+    'September': 9, 'October': 10, 'November': 11, 'December': 12,
+    'January': 1, 'February': 2, 'March': 3
 }
-# Add dummy variables
-for z in sorted(df_merged['Zone'].unique()):
-    input_dict[f"Zone_{z}"] = 1 if z == zone else 0
-for m in sorted(df_merged['Month'].unique())[1:]:  # drop_first=True
-    input_dict[f"Month_{m}"] = 1 if m == month else 0
 
-input_df = pd.DataFrame([input_dict])
+# Title and Header
+st.markdown("<h1 style='text-align: center; color: #0072C6;'>🔌 Electricity Consumption Predictor</h1>", unsafe_allow_html=True)
+st.markdown("<h5 style='text-align: center;'>🔷 Designed by <b><span style='color:#0072C6;'>Tata Power - MMG</span></b></h5>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-style: italic;'>Note: This is based on around 100K smart meter data from FY 24–25.</p>", unsafe_allow_html=True)
 
-# Predict
+st.markdown("### Enter details to predict monthly electricity usage (kWh/KVAh)")
+
+# Centered input section
 col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    if st.button("Predict Consumption (kWh)"):
-        prediction = model.predict(input_df)[0]
-        st.success(f"Predicted Consumption: **{prediction:.2f} kWh**")
 
+with col2:
+    connected_load = st.number_input("Connected Load (kW/KVA)", min_value=0.0, step=0.1, format="%.2f")
+    zone = st.selectbox("Select Zone", df['Zone'].unique())
+    category = st.selectbox("Select Category", df['Category'].unique())
+    month = st.selectbox("Select Month", list(month_mapping.keys()))
+
+    if st.button("🔍 Predict Consumption"):
+        if model:
+            input_df = pd.DataFrame({
+                'Connected Load': [connected_load],
+                'Category': [category],
+                'Zone': [zone],
+                'Month': [month]
+            })
+            prediction = model.predict(input_df)[0]
+            st.success(f"✅ Predicted Monthly Consumption for {month}: **{prediction:.2f} kWh/KVAh**")
+        else:
+            st.error("⚠️ Model not loaded. Please check the backend.")
