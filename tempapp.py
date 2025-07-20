@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 
 st.set_page_config(layout="centered")
-st.image("824cb023-3bea-45a2-a136-18f7b2927d48.png", width=350)
+st.image("tata_logo.png", width=350)
 st.title("Electricity Consumption Predictor with Weather AI")
 
 # Load consumption and weather data from local files
