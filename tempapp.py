@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 import base64
-from openai import OpenAI
 import requests
 
 # ------------ LOGO DISPLAY ------------
